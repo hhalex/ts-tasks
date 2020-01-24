@@ -1,106 +1,128 @@
-export type Task = {
-    run: (then?: () => void) => ScheduledTask
-};
-
 export type ScheduledTask = {
-    cancel: () => void
+    cancel: () => boolean
+}
+export type Task<T> = {
+    flatMap:  <U>(f: ((t: T) => Task<U>)) => Task<U>
+    run: <U>(then: (v: T) => U) => ScheduledTask
+}
+const noop = <_T, _U>() => () => {
+    return undefined as unknown as _U;
+};
+const flatMapTask = <T, U>(t: Task<T>, f: ((t: T) => Task<U>)): Task<U> => {
+    const taskU: Task<U> = {
+        run: <V>(then: (v: U) => V = noop<U, V>()): ScheduledTask => {
+            let scheduledSnd: ScheduledTask;
+            const scheduledFst = t.run((v2: T) => {
+                scheduledSnd = f(v2).run(then);
+            });
+            return {
+                cancel: () => {
+                    const fstCancelRes = scheduledFst.cancel();
+                    return scheduledSnd ? fstCancelRes || scheduledSnd.cancel() : fstCancelRes;
+                }
+            };
+        },
+        flatMap: <V>(fu: (u: U) => Task<V>) => flatMapTask<U, V>(taskU, fu)
+    };
+    return taskU;
+};
+export const createTask = <T>(action: () => T): Task<T> => {
+    const taskT = {
+        run: <U>(then: ((v: T) => U) = noop<T, U>()) => {
+            then(action());
+            return {
+                cancel: () => false
+            };
+        },
+        flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
+    };
+    return taskT;
+};
+export const createTimeoutTask = <T>(w: Window, action: () => T, thresholdMs: number): Task<T> => {
+    const taskT = {
+        run: <U>(then: ((v: T) => U) = noop<T, U>()) => {
+            let executed = false;
+            const timeoutId = w.setTimeout(() => { const value = action(); then(value); executed = true; }, thresholdMs);
+            return {
+                cancel: () => {
+                    w.clearTimeout(timeoutId);
+                    return executed;
+                }
+            };
+        },
+        flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
+    };
+    return taskT;
+};
+export const createEventTask = <T>(w: Window, eventName: keyof WindowEventMap, action: () => T): Task<T> => {
+    const taskT = {
+        run: <U>(then: ((v: T) => U) = noop<T, U>()) => {
+            let executed = false;
+            const doit = () => { const value = action(); then(value); executed = true; };
+            w.addEventListener(eventName, doit);
+            return {
+                cancel: () => {
+                    w.removeEventListener(eventName, doit);
+                    return executed;
+                }
+            };
+        },
+        flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
+    };
+    return taskT;
+};
+export const createMraidTask = <T, K extends keyof MRAIDEventHandlers>(mraid: MRAID2, eventName: K, action: (...args: Parameters<MRAIDEventHandlers[K]>) => T): Task<T> => {
+    const taskT = {
+        run: <U>(then: ((v: T) => U) = noop<T, U>()) => {
+            let executed = false;
+            const doit = ((...args: Parameters<MRAIDEventHandlers[K]>) => { const value = action(...args); then(value); executed = true; }) as MRAIDEventHandlers[K];
+            mraid.addEventListener(eventName, doit);
+            return {
+                cancel: () => {
+                    mraid.removeEventListener(eventName, doit);
+                    return executed;
+                }
+            };
+        },
+        flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
+    };
+    return taskT;
+};
+export const repeat = <T>(task: Task<T>, n: number): Task<T> =>
+    n === 1
+        ? task
+        : task.flatMap(_ => repeat(task, n - 1)) as Task<T>;
+
+export const race = <T>(...tasks: Task<T>[]): Task<T> => {
+    const taskT = {
+        run: <U>(then: ((v: T) => U) = noop<T, U>()) => {
+            const scheduledTasks = tasks.map(t => t.run(v => { const res = then(v); cancelAll(); return res; }));
+            const cancelAll = () => scheduledTasks.map(t => t.cancel()).reduce((acc, current) => acc || current, false);
+            return {
+                cancel: cancelAll
+            };
+        },
+        flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
+    };
+    return taskT;
 };
 
-// Creates a task that will cancel all other tasks after one has finished
-export const race = (...tasks: Task[]): Task => ({
-    run: (then: () => void = () => {}) => {
-        const cancels = tasks.map(t => t.run(() => {
-            innerCancelAll(); 
-            then();
-        }));
-        const innerCancelAll = () => cancels.forEach(t => t.cancel());
-        return {
-            cancel: innerCancelAll
-        };
-    }
-})
-
-// Creates a task from tasks, executing the "then" function after all tasks have finished
-export const all = (...tasks: Task[]) => ({
-    run: (then: () => void = () => {}) => {
-        let nbRemainingTasks = tasks.length;
-        const executeThenAfterAll = () => {
-            if (nbRemainingTasks == 0) {
-                then();
-            } else nbRemainingTasks--;
-        };
-        const scheduledTasks = tasks.map(t => t.run(executeThenAfterAll));
-        return {
-            cancel: () => scheduledTasks.forEach(t => t.cancel())
-        };
-    }
-});
-
-// Repeat n times the task before executing the then function
-// If n = 0, the task is repeated indefinitely
-export const repeat = (task: Task, n: number): Task => ({
-    run: (then: () => void = () => {}) => 
-        task.run(n === 1 
-            ? then
-            : () => repeat(task, n - 1).run(then)
-        )
-});
-
-// Creates a sequence Task from 2 tasks, executing the first and the second, and finally the "then" function
-export const seq = (fst: Task, snd: Task): Task => ({
-    run: (then: () => void = () => {}) => {
-        let scheduledSnd: ScheduledTask;
-        const scheduledFst = fst.run(() => scheduledSnd = snd.run(then))
-        return {
-            cancel: () => {
-                scheduledFst.cancel();
-                if (scheduledSnd) scheduledSnd.cancel();
-            }
-        };
-    }
-});
-
-// Creates a task executing all tasks in order before executing the then function
-export const sequence = (...[fst, ...remainingTasks]: [Task, ...Task[]]): Task => remainingTasks.length === 0
-    ? fst 
-    : {
-        run: (then: () => void = () => {}) => {
-            const remainingTask = sequence(...remainingTasks as [Task, ...Task[]]);
-            return seq(fst, remainingTask).run(then);
-        }
+export const all = <T>(...tasks: Task<T>[]): Task<T> => {
+    const taskT = {
+        run: <U>(then: ((v: T) => U) = noop<T, U>()) => {
+            let remainingTasks = tasks.length;
+            const scheduledTasks = tasks.map(t =>
+                t.run(v => {
+                    if (remainingTasks-- == 0) {
+                        then(v);
+                    }
+                })
+            );
+            return {
+                cancel: () => scheduledTasks.map(t => t.cancel()).reduce((acc, current) => acc || current, false)
+            };
+        },
+        flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
     };
-
-export const timeoutTask = (thresholdMs: number, action: () => void) => ({
-    run: (then: () => void = () => {}) => {
-        const timeoutId = window.setTimeout(() => {action(); then();}, thresholdMs);
-        return {
-            cancel: () => window.clearTimeout(timeoutId)
-        };
-    }
-});
-
-export const windowEventTask = (w: Window, eventName: keyof WindowEventMap, action: () => void) => ({
-    run: (then: () => void = () => {}) => {
-        const actionOnce = () => {action(); then();};
-        window.addEventListener(eventName, actionOnce);
-        return {
-            cancel: () => window.removeEventListener(eventName, actionOnce)
-        };
-    }
-});
-
-/*
-export type Listenable<U extends Object> = {
-    addEventListener: (eventName: keyof U, action: () => void) => void,
-    removeEventListener: (eventName: keyof U, action: () => void) => void,
-}
-
-export const eventTask = <T extends Listenable<U>, U>(element: T, eventName: keyof U, action: () => void) => ({
-    run: (then: () => void = () => {}) => {
-        const actionOnce = () => { action(); then(); };
-        element.addEventListener(eventName, actionOnce);
-        return {
-            cancel: () => window.removeEventListener(eventName, actionOnce)
-        };
-    }
-});*/
+    return taskT;
+};
