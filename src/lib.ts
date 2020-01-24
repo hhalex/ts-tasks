@@ -38,56 +38,48 @@ export const createTask = <T>(action: () => T): Task<T> => {
     };
     return taskT;
 };
-export const createTimeoutTask = <T>(w: Window, action: () => T, thresholdMs: number): Task<T> => {
-    const taskT = {
-        run: <U>(then: ((v: T) => U) = noop<T, U>()) => {
-            let executed = false;
-            const timeoutId = w.setTimeout(() => { const value = action(); then(value); executed = true; }, thresholdMs);
-            return {
-                cancel: () => {
-                    w.clearTimeout(timeoutId);
-                    return executed;
-                }
-            };
-        },
-        flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
+export const createTimeoutTaskCreator = (w: Window) =>
+    <T>(action: () => T, thresholdMs: number): Task<T> => {
+        const taskT = {
+            run: <U>(then: ((v: T) => U) = noop<T, U>()) => {
+                let executed = false;
+                const timeoutId = w.setTimeout(() => { const value = action(); then(value); executed = true; }, thresholdMs);
+                return {
+                    cancel: () => {
+                        w.clearTimeout(timeoutId);
+                        return executed;
+                    }
+                };
+            },
+            flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
+        };
+        return taskT;
     };
-    return taskT;
+
+type EventListenable<EventMap extends {[key in keyof EventMap]: Event}> = {
+    addEventListener: <K extends keyof EventMap>(eventName: K, action: (e: EventMap[K]) => void) => void,
+    removeEventListener: <K extends keyof EventMap>(eventName: K, action: (e: EventMap[K]) => void) => void,
 };
-export const createEventTask = <T>(w: Window, eventName: keyof WindowEventMap, action: () => T): Task<T> => {
-    const taskT = {
-        run: <U>(then: ((v: T) => U) = noop<T, U>()) => {
-            let executed = false;
-            const doit = () => { const value = action(); then(value); executed = true; };
-            w.addEventListener(eventName, doit);
-            return {
-                cancel: () => {
-                    w.removeEventListener(eventName, doit);
-                    return executed;
-                }
-            };
-        },
-        flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
+
+export const createEventTaskCreator = <EM extends {[key in keyof EM]: Event}, EL extends EventListenable<EM>>(el: EL) =>
+    <K extends keyof EM, T>(eventName: K, action: (e: EM[K]) => T): Task<T> => {
+        const taskT = {
+            run: <U>(then: ((v: T) => U) = noop<T, U>()) => {
+                let executed = false;
+                const doit = (e: EM[K]) => { const value = action(e); then(value); executed = true; };
+                el.addEventListener(eventName, doit);
+                return {
+                    cancel: () => {
+                        el.removeEventListener(eventName, doit);
+                        return executed;
+                    }
+                };
+            },
+            flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
+        };
+        return taskT;
     };
-    return taskT;
-};
-export const createMraidTask = <T, K extends keyof MRAIDEventHandlers>(mraid: MRAID2, eventName: K, action: (...args: Parameters<MRAIDEventHandlers[K]>) => T): Task<T> => {
-    const taskT = {
-        run: <U>(then: ((v: T) => U) = noop<T, U>()) => {
-            let executed = false;
-            const doit = ((...args: Parameters<MRAIDEventHandlers[K]>) => { const value = action(...args); then(value); executed = true; }) as MRAIDEventHandlers[K];
-            mraid.addEventListener(eventName, doit);
-            return {
-                cancel: () => {
-                    mraid.removeEventListener(eventName, doit);
-                    return executed;
-                }
-            };
-        },
-        flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
-    };
-    return taskT;
-};
+
 export const repeat = <T>(task: Task<T>, n: number): Task<T> =>
     n === 1
         ? task

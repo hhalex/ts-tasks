@@ -1,10 +1,16 @@
-import { race, Task, timeoutTask, windowEventTask } from "./lib";
+import { race, Task, createEventTaskCreator, createTimeoutTaskCreator } from "./lib";
 
 const myAction = () => console.log("myAction was executed");
 
-const onBeforeUnloadOrTimeout = (thresholdMs: number, action: () => void): Task => race(
-    timeoutTask(thresholdMs, action),
-    windowEventTask(window, "beforeunload", action)
+
+const createWindowEventTask = createEventTaskCreator<WindowEventMap, Window>(window);
+const createHtmlElementTask = createEventTaskCreator<HTMLElementEventMap, HTMLElement>(document.getElementById("test"));
+
+const createTimeoutTask = createTimeoutTaskCreator(window);
+
+const onBeforeUnloadOrTimeout = (thresholdMs: number, action: () => void) => race(
+    createTimeoutTask(action, thresholdMs),
+    createWindowEventTask("beforeunload", action)
 );
 
 onBeforeUnloadOrTimeout(4000, myAction);
