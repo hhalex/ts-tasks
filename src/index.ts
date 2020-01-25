@@ -1,4 +1,4 @@
-import { TaskCombinator, Task } from "./lib";
+import { TaskCombinator, Task } from "./tasks";
 
 const myAction = () => console.log("myAction was executed");
 
