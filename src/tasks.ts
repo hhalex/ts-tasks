@@ -12,7 +12,7 @@ const doNothing = <_T, _U>() => () => {
 
 const flatMapTask = <T, U>(t: Task<T>, f: ((t: T) => Task<U>)): Task<U> => {
     const taskU: Task<U> = {
-        run: <V>(then: (v: U) => V = noop<U, V>()): ScheduledTask => {
+        run: <V>(then: (v: U) => V = doNothing<U, V>()): ScheduledTask => {
             let scheduledSnd: ScheduledTask;
             const scheduledFst = t.run((v2: T) => {
                 scheduledSnd = f(v2).run(then);
