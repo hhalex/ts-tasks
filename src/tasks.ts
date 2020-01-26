@@ -69,7 +69,7 @@ export module Task {
         removeEventListener: <K extends keyof EventMap>(eventName: K, action: (e: EventMap[K]) => void) => void,
     };
 
-    export const eventCreator = <EM extends {[key in keyof EM]: Event}, EL extends EventListenable<EM>>(el: EL) =>
+    export const eventCreator = <EM extends {[key in keyof EM]: Event} = WindowEventMap, EL extends EventListenable<EM> = Window>(el: EL) =>
         <K extends keyof EM, T>(eventName: K, action: (e: EM[K]) => T): Task<T> => {
             const taskT = {
                 run: <U>(then: ((v: T) => U) = doNothing<T, U>()) => {

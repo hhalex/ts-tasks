@@ -42,7 +42,7 @@ export module Stream {
         removeEventListener: <K extends keyof EventMap>(eventName: K, action: (e: EventMap[K]) => void) => void,
     };
 
-    export const events = <EM extends {[key in keyof EM]: Event}, EL extends EventListenable<EM>>(el: EL) =>
+    export const events = <EM extends {[key in keyof EM]: Event} = WindowEventMap, EL extends EventListenable<EM> = Window>(el: EL) =>
         <K extends keyof EM, T>(eventName: K, action: (e: EM[K]) => T): Stream<T> => {
             const streamT = {
                 start: <U>(then: ((v: T) => U) = doNothing<T, U>()) => {
