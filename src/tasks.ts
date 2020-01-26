@@ -2,12 +2,23 @@ export type ScheduledTask = {
     cancel: () => boolean
 }
 export type Task<T> = {
-    flatMap:  <U>(f: ((t: T) => Task<U>)) => Task<U>
+    flatMap:  <U>(f: ((t: T) => Task<U>)) => Task<U>,
+    map: <U>(f: (t: T) => U) => Task<U>,
     run: <U>(then: (v: T) => U) => ScheduledTask
 }
 
 const doNothing = <_T, _U>() => () => {
     return undefined as unknown as _U;
+};
+
+const mapTask = <T, U>(t: Task<T>, f: ((t: T) => U)): Task<U> => {
+    const taskU: Task<U> = {
+        run: <V>(then: (v: U) => V = doNothing<U, V>()): ScheduledTask => t.run(v => then(f(v))),
+        map: <V>(f: (v: U) => V) => mapTask<U, V>(taskU, f),
+        flatMap: <V>(fu: (u: U) => Task<V>) => flatMapTask<U, V>(taskU, fu)
+    };
+
+    return taskU;
 };
 
 const flatMapTask = <T, U>(t: Task<T>, f: ((t: T) => Task<U>)): Task<U> => {
@@ -24,6 +35,7 @@ const flatMapTask = <T, U>(t: Task<T>, f: ((t: T) => Task<U>)): Task<U> => {
                 }
             };
         },
+        map: <V>(f: (v: U) => V) => mapTask<U, V>(taskU, f),
         flatMap: <V>(fu: (u: U) => Task<V>) => flatMapTask<U, V>(taskU, fu)
     };
     return taskU;
@@ -39,6 +51,7 @@ export module Task {
                     cancel: () => false
                 };
             },
+            map: <U>(f: (t: T) => U): Task<U> => mapTask<T, U>(taskT, f),
             flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
         };
         return taskT;
@@ -59,6 +72,7 @@ export module Task {
                         }
                     };
                 },
+                map: <U>(f: (t: T) => U): Task<U> => mapTask<T, U>(taskT, f),
                 flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
             };
             return taskT;
@@ -83,6 +97,7 @@ export module Task {
                         }
                     };
                 },
+                map: <U>(f: (t: T) => U): Task<U> => mapTask<T, U>(taskT, f),
                 flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
             };
             return taskT;
@@ -103,6 +118,7 @@ export module TaskCombinator {
                     cancel: cancelAll
                 };
             },
+            map: <U>(f: (t: T) => U): Task<U> => mapTask<T, U>(taskT, f),
             flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
         };
         return taskT;
@@ -123,6 +139,7 @@ export module TaskCombinator {
                     cancel: () => scheduledTasks.map(t => t.cancel()).reduce((acc, current) => acc || current, false)
                 };
             },
+            map: <U>(f: (t: T) => U): Task<U> => mapTask<T, U>(taskT, f),
             flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
         };
         return taskT;
