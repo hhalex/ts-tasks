@@ -1,4 +1,5 @@
 import { TaskCombinator, Task } from "./tasks";
+import { Stream } from "./streams";
 
 const myAction = () => console.log("myAction was executed");
 
@@ -13,3 +14,5 @@ const onBeforeUnloadOrTimeout = (thresholdMs: number, action: () => void) => Tas
 );
 
 onBeforeUnloadOrTimeout(4000, myAction);
+
+const eventStream: Stream<number> = Stream.events<WindowEventMap, Window>(window)("click", e => e.x);

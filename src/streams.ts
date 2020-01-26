@@ -36,4 +36,26 @@ export module Stream {
             };
             return streamT; 
         }
+
+    type EventListenable<EventMap extends {[key in keyof EventMap]: Event}> = {
+        addEventListener: <K extends keyof EventMap>(eventName: K, action: (e: EventMap[K]) => void) => void,
+        removeEventListener: <K extends keyof EventMap>(eventName: K, action: (e: EventMap[K]) => void) => void,
+    };
+
+    export const events = <EM extends {[key in keyof EM]: Event}, EL extends EventListenable<EM>>(el: EL) =>
+        <K extends keyof EM, T>(eventName: K, action: (e: EM[K]) => T): Stream<T> => {
+            const streamT = {
+                start: <U>(then: ((v: T) => U) = doNothing<T, U>()) => {
+                    const doit = (e: EM[K]) => then(action(e));
+                    el.addEventListener(eventName, doit);
+                    return {
+                        stop: () => {
+                            el.removeEventListener(eventName, doit);
+                        }
+                    };
+                },
+                map: <U>(f: (t: T) => U): Stream<U> => mapStream<T, U>(streamT, f)
+            };
+            return streamT;
+        };
 };
