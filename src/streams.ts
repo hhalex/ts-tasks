@@ -20,53 +20,41 @@ const doNothing = <_T, _U>() => () => {
 
 type Generator<T> = () => {val: T, next: Generator<T>};
 
-const mapStream = <T, U>(t: NudeStream<T>, f: ((t: T) => U)): Stream<U> => {
-    const streamU = {
-        start: <V>(then: (v: U) => V = doNothing<U, V>()): RunningStream =>
-            t.start((v2: T) => then(f(v2)))
-    };
-    return createStream(streamU);
-};
+const mapStream = <T, U>(t: NudeStream<T>, f: ((t: T) => U)): NudeStream<U> => ({
+    start: <V>(then: (v: U) => V = doNothing<U, V>()): RunningStream =>
+        t.start((v2: T) => then(f(v2)))
+});
 
-const filterStream = <T>(t: NudeStream<T>, f: ((t: T) => boolean)): Stream<T> => {
-    const streamU = {
-        start: <V>(then: (v: T) => V = doNothing<T, V>()): RunningStream =>
-            t.start((v2: T) => {
-                if (f(v2)) {
-                    then(v2);
-                }
-            })
-    };
-    return createStream(streamU);
-};
+const filterStream = <T>(nudeStreamT: NudeStream<T>, f: ((t: T) => boolean)): NudeStream<T> => ({
+    start: <V>(then: (v: T) => V = doNothing<T, V>()): RunningStream =>
+        nudeStreamT.start((v2: T) => {
+            if (f(v2)) {
+                then(v2);
+            }
+        })
+})
 
-const takeStream = <T>(streamT: NudeStream<T>, n: number): Stream<T> => {
-    const takenSreamT = {
-        start: <V>(then: (v: T) => V = doNothing<T, V>()): RunningStream => {
-            let countDown = n;
+const takeStream = <T>(nudeStreamT: NudeStream<T>, n: number): NudeStream<T> => ({
+    start: <V>(then: (v: T) => V = doNothing<T, V>()): RunningStream => {
+        let countDown = n;
 
-            const scheduledStream = streamT.start((v2: T) => {
-                if (countDown-- > 0)
-                    then(v2);
-                else
-                    scheduledStream.stop();
-            });
+        const scheduledStream = nudeStreamT.start((v2: T) => {
+            if (countDown-- > 0)
+                then(v2);
+            else
+                scheduledStream.stop();
+        });
 
-            return scheduledStream;
-        }
-    };
-    return createStream(takenSreamT);
-};
+        return scheduledStream;
+    }
+});
 
-const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => {
-    const stream: Stream<T> = {
-        ...nudeStream,
-        map: <V>(f: (t: T) => V) => mapStream<T, V>(stream, f),
-        filter: (f: (t: T) => boolean) => filterStream<T>(stream, f),
-        take: (n: number) => takeStream(stream, n)
-    };
-    return stream;
-};
+const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => ({
+    ...nudeStream,
+    map: <V>(f: (t: T) => V) => createStream(mapStream<T, V>(nudeStream, f)),
+    filter: (f: (t: T) => boolean) => createStream(filterStream<T>(nudeStream, f)),
+    take: (n: number) => createStream(takeStream(nudeStream, n))
+});
 
 export module Stream {
     export const interval = (timeIntervalMs: number, w: Window = window): Stream<void> => {
