@@ -3,7 +3,8 @@ export type RunningStream = {
 };
 
 type PrimitiveStream<T> = {
-    map:  <U>(f: ((t: T) => U)) => Stream<U>
+    map:  <U>(f: ((t: T) => U)) => Stream<U>,
+    filter:  (f: ((t: T) => boolean)) => Stream<T>,
 }
 
 type NudeStream<T> = {
@@ -26,10 +27,23 @@ const mapStream = <T, U>(t: Stream<T>, f: ((t: T) => U)): Stream<U> => {
     return createStream(streamU);
 };
 
+const filterStream = <T>(t: Stream<T>, f: ((t: T) => boolean)): Stream<T> => {
+    const streamU = {
+        start: <V>(then: (v: T) => V = doNothing<T, V>()): RunningStream =>
+            t.start((v2: T) => {
+                if (f(v2)) {
+                    then(v2);
+                }
+            })
+    };
+    return createStream(streamU);
+};
+
 const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => {
     const stream: Stream<T> = {
         ...nudeStream,
-        map: <V>(f: (t: T) => V) => mapStream<T, V>(stream, f)
+        map: <V>(f: (t: T) => V) => mapStream<T, V>(stream, f),
+        filter: (f: (t: T) => boolean) => filterStream<T>(stream, f)
     };
     return stream;
 };

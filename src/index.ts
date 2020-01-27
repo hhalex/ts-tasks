@@ -16,7 +16,8 @@ const eventStream = Stream.events("click", window)
     .map<[number, number]>(e => [e.x, e.y]);
 
 const timeStream = Stream.interval(1000)
-    .map(((i=0) => () => i++)());
+    .map(((i=0) => () => i++)())
+    .filter(n => n == 1);
 
 const zipStream = StreamCombinator
     .zip(eventStream, timeStream)
