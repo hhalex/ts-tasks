@@ -5,6 +5,7 @@ export type RunningStream = {
 type PrimitiveStream<T> = {
     map:  <U>(f: ((t: T) => U)) => Stream<U>,
     filter:  (f: ((t: T) => boolean)) => Stream<T>,
+    take: (n: number) => Stream<T>
 }
 
 type NudeStream<T> = {
@@ -19,7 +20,7 @@ const doNothing = <_T, _U>() => () => {
 
 type Generator<T> = () => {val: T, next: Generator<T>};
 
-const mapStream = <T, U>(t: Stream<T>, f: ((t: T) => U)): Stream<U> => {
+const mapStream = <T, U>(t: NudeStream<T>, f: ((t: T) => U)): Stream<U> => {
     const streamU = {
         start: <V>(then: (v: U) => V = doNothing<U, V>()): RunningStream =>
             t.start((v2: T) => then(f(v2)))
@@ -27,7 +28,7 @@ const mapStream = <T, U>(t: Stream<T>, f: ((t: T) => U)): Stream<U> => {
     return createStream(streamU);
 };
 
-const filterStream = <T>(t: Stream<T>, f: ((t: T) => boolean)): Stream<T> => {
+const filterStream = <T>(t: NudeStream<T>, f: ((t: T) => boolean)): Stream<T> => {
     const streamU = {
         start: <V>(then: (v: T) => V = doNothing<T, V>()): RunningStream =>
             t.start((v2: T) => {
@@ -39,11 +40,30 @@ const filterStream = <T>(t: Stream<T>, f: ((t: T) => boolean)): Stream<T> => {
     return createStream(streamU);
 };
 
+const takeStream = <T>(streamT: NudeStream<T>, n: number): Stream<T> => {
+    const takenSreamT = {
+        start: <V>(then: (v: T) => V = doNothing<T, V>()): RunningStream => {
+            let countDown = n;
+
+            const scheduledStream = streamT.start((v2: T) => {
+                if (countDown-- > 0)
+                    then(v2);
+                else
+                    scheduledStream.stop();
+            });
+
+            return scheduledStream;
+        }
+    };
+    return createStream(takenSreamT);
+};
+
 const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => {
     const stream: Stream<T> = {
         ...nudeStream,
         map: <V>(f: (t: T) => V) => mapStream<T, V>(stream, f),
-        filter: (f: (t: T) => boolean) => filterStream<T>(stream, f)
+        filter: (f: (t: T) => boolean) => filterStream<T>(stream, f),
+        take: (n: number) => takeStream(stream, n)
     };
     return stream;
 };
