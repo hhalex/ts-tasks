@@ -2,10 +2,15 @@ export type RunningStream = {
     stop: () => void
 };
 
-export type Stream<T> = {
+type PrimitiveStream<T> = {
     map:  <U>(f: ((t: T) => U)) => Stream<U>
+}
+
+type NudeStream<T> = {
     start: <U>(then: (v: T) => U) => RunningStream
 };
+
+export type Stream<T> = PrimitiveStream<T> & NudeStream<T>;
 
 const doNothing = <_T, _U>() => () => {
     return undefined as unknown as _U;
@@ -14,26 +19,32 @@ const doNothing = <_T, _U>() => () => {
 type Generator<T> = () => {val: T, next: Generator<T>};
 
 const mapStream = <T, U>(t: Stream<T>, f: ((t: T) => U)): Stream<U> => {
-    const streamU: Stream<U> = {
+    const streamU = {
         start: <V>(then: (v: U) => V = doNothing<U, V>()): RunningStream =>
-            t.start((v2: T) => then(f(v2))),
-        map: <V>(fu: (u: U) => V) => mapStream<U, V>(streamU, fu)
+            t.start((v2: T) => then(f(v2)))
     };
-    return streamU;
+    return createStream(streamU);
+};
+
+const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => {
+    const stream: Stream<T> = {
+        ...nudeStream,
+        map: <V>(f: (t: T) => V) => mapStream<T, V>(stream, f)
+    };
+    return stream;
 };
 
 export module Stream {
     export const interval = (timeIntervalMs: number, w: Window = window): Stream<void> => {
-        const streamT: Stream<void> = {
+        const streamT = {
             start: <V>(then: (v: void) => V = doNothing<void, V>()): RunningStream => {
                 const intervalId = w.setInterval(then, timeIntervalMs);
                 return {
                     stop: () => w.clearInterval(intervalId)
                 };
-            },
-            map: <V>(fv: (u: void) => V) => mapStream<void, V>(streamT, fv)
+            }
         };
-        return streamT; 
+        return createStream(streamT); 
     }
 
     type EventListenable<EventMap extends {[key in keyof EventMap]: Event}> = {
@@ -56,15 +67,14 @@ export module Stream {
                     }
                 };
             },
-            map: <U>(f: (t: StreamedEvent) => U): Stream<U> => mapStream<StreamedEvent, U>(streamT, f)
         };
-        return streamT;
+        return createStream(streamT);
     };
 };
 
 export module StreamCombinator {
     export const zip = <S1, S2>(stream1: Stream<S1>, stream2: Stream<S2>) => {
-        const zipStream: Stream<[S1, S2]> = {
+        const zipStream: NudeStream<[S1, S2]> = {
             start: <U>(then: ((v: [S1, S2]) => U) = doNothing<[S1, S2], U>()) => {
                 
                 const initialState: [undefined, false] = [undefined, false];
@@ -89,9 +99,8 @@ export module StreamCombinator {
                         runningStream2.stop();
                     }
                 };
-            },
-            map: <U>(f: (t: [S1, S2]) => U): Stream<U> => mapStream<[S1, S2], U>(zipStream, f)
+            }
         }
-        return zipStream;
+        return createStream(zipStream);
     }
 }
