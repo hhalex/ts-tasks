@@ -1,5 +1,5 @@
 import { TaskCombinator, Task } from "./tasks";
-import { Stream } from "./streams";
+import { Stream, StreamCombinator } from "./streams";
 
 const myAction = () => console.log("myAction was executed");
 
@@ -16,7 +16,10 @@ const eventStream = Stream.events(window, "click")
     .map<[number, number]>(e => [e.x, e.y]);
 
 const timeStream = Stream.interval(window)(1000)
-    .map(((i=0) => () => i++)())
-    .map(console.log);
+    .map(((i=0) => () => i++)());
 
-eventStream.start(([x, y]) => console.log(x + ", " + y));
+const zipStream = StreamCombinator
+    .zip(eventStream, timeStream)
+    .map(([[x, y], time]) => `Click event [${x}, ${y}] recorded at ${time} seconds`);
+
+zipStream.start(console.log);

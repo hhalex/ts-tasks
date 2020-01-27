@@ -62,3 +62,37 @@ export module Stream {
         return streamT;
     };
 };
+
+export module StreamCombinator {
+    export const zip = <S1, S2>(stream1: Stream<S1>, stream2: Stream<S2>) => {
+        const zipStream: Stream<[S1, S2]> = {
+            start: <U>(then: ((v: [S1, S2]) => U) = doNothing<[S1, S2], U>()) => {
+                
+                const initialState: [undefined, false] = [undefined, false];
+                
+                let s1: [S1, true] | [undefined, false] = initialState;
+                let s2: [S2, true] | [undefined, false] = initialState;
+                
+                const emitZipEvent = () => {
+                    if (s1[1] && s2[1]) {
+                        then([s1[0], s2[0]]);
+                        s1 = initialState;
+                        s2 = initialState;
+                    }
+                };
+
+                const runningStream1 = stream1.start(eventS1 => { s1 = [eventS1, true]; emitZipEvent(); });
+                const runningStream2 = stream2.start(eventS2 => { s2 = [eventS2, true]; emitZipEvent(); });
+
+                return {
+                    stop: () => {
+                        runningStream1.stop();
+                        runningStream2.stop();
+                    }
+                };
+            },
+            map: <U>(f: (t: [S1, S2]) => U): Stream<U> => mapStream<[S1, S2], U>(zipStream, f)
+        }
+        return zipStream;
+    }
+}
