@@ -23,19 +23,18 @@ const mapStream = <T, U>(t: Stream<T>, f: ((t: T) => U)): Stream<U> => {
 };
 
 export module Stream {
-    export const interval = (w: Window) =>
-        (timeIntervalMs: number): Stream<void> => {
-            const streamT: Stream<void> = {
-                start: <V>(then: (v: void) => V = doNothing<void, V>()): RunningStream => {
-                    const intervalId = w.setInterval(then, timeIntervalMs);
-                    return {
-                        stop: () => w.clearInterval(intervalId)
-                    };
-                },
-                map: <V>(fv: (u: void) => V) => mapStream<void, V>(streamT, fv)
-            };
-            return streamT; 
-        }
+    export const interval = (timeIntervalMs: number, w: Window = window): Stream<void> => {
+        const streamT: Stream<void> = {
+            start: <V>(then: (v: void) => V = doNothing<void, V>()): RunningStream => {
+                const intervalId = w.setInterval(then, timeIntervalMs);
+                return {
+                    stop: () => w.clearInterval(intervalId)
+                };
+            },
+            map: <V>(fv: (u: void) => V) => mapStream<void, V>(streamT, fv)
+        };
+        return streamT; 
+    }
 
     type EventListenable<EventMap extends {[key in keyof EventMap]: Event}> = {
         addEventListener: <K extends keyof EventMap>(eventName: K, action: (e: EventMap[K]) => void) => void,
@@ -46,7 +45,7 @@ export module Stream {
         EM extends {[key in keyof EM]: Event} = WindowEventMap, 
         EL extends EventListenable<EM> = Window,
         K extends keyof EM = keyof EM
-    >(el: EL, eventName: K): Stream<EM[K]> => {
+    >(eventName: K, el: EL): Stream<EM[K]> => {
         type StreamedEvent = EM[K];
         const streamT = {
             start: <U>(then: ((v: StreamedEvent) => U) = doNothing<StreamedEvent, U>()) => {

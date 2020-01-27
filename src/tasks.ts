@@ -59,24 +59,23 @@ export module Task {
 
     export const noop = lambda(doNothing<void, void>());
 
-    export const timeoutCreator = (w: Window) =>
-        (thresholdMs: number): Task<void> => {
-            const taskT: Task<void> = {
-                run: <U>(then: ((t: void) => U) = doNothing<void, U>()) => {
-                    let executed = false;
-                    const timeoutId = w.setTimeout(() => { then(); executed = true; }, thresholdMs);
-                    return {
-                        cancel: () => {
-                            w.clearTimeout(timeoutId);
-                            return executed;
-                        }
-                    };
-                },
-                map: <U>(f: (t: void) => U): Task<U> => mapTask<void, U>(taskT, f),
-                flatMap: <U>(f: (t: void) => Task<U>): Task<U> => flatMapTask<void, U>(taskT, f)
-            };
-            return taskT;
+    export const timeout = (thresholdMs: number, w: Window = window): Task<void> => {
+        const taskT: Task<void> = {
+            run: <U>(then: ((t: void) => U) = doNothing<void, U>()) => {
+                let executed = false;
+                const timeoutId = w.setTimeout(() => { then(); executed = true; }, thresholdMs);
+                return {
+                    cancel: () => {
+                        w.clearTimeout(timeoutId);
+                        return executed;
+                    }
+                };
+            },
+            map: <U>(f: (t: void) => U): Task<U> => mapTask<void, U>(taskT, f),
+            flatMap: <U>(f: (t: void) => Task<U>): Task<U> => flatMapTask<void, U>(taskT, f)
         };
+        return taskT;
+    };
 
     type EventListenable<EventMap extends {[key in keyof EventMap]: Event}> = {
         addEventListener: <K extends keyof EventMap>(eventName: K, action: (e: EventMap[K]) => void) => void,
@@ -87,7 +86,7 @@ export module Task {
         EM extends {[key in keyof EM]: Event} = WindowEventMap,
         EL extends EventListenable<EM> = Window,
         K extends keyof EM = keyof EM
-    >(el: EL, eventName: K): Task<EM[K]> => {
+    >(eventName: K, el: EL): Task<EM[K]> => {
             
         type TaskEvent = EM[K];
         const taskT = {
@@ -114,17 +113,17 @@ export module TaskCombinator {
             ? task
             : task.flatMap(_ => repeat(task, n - 1)) as Task<T>;
 
-    export const race = <T>(...tasks: Task<T>[]): Task<T> => {
+    export const race = <T>(...tasks: Task<T | void>[]): Task<T | void> => {
         const taskT = {
-            run: <U>(then: ((v: T) => U) = doNothing<T, U>()) => {
+            run: <U>(then: ((v: T | void) => U) = doNothing<T, U>()) => {
                 const scheduledTasks = tasks.map(t => t.run(v => { const res = then(v); cancelAll(); return res; }));
                 const cancelAll = () => scheduledTasks.map(t => t.cancel()).reduce((acc, current) => acc || current, false);
                 return {
                     cancel: cancelAll
                 };
             },
-            map: <U>(f: (t: T) => U): Task<U> => mapTask<T, U>(taskT, f),
-            flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T, U>(taskT, f)
+            map: <U>(f: (t: T) => U): Task<U> => mapTask<T | void, U>(taskT, f),
+            flatMap: <U>(f: (t: T) => Task<U>): Task<U> => flatMapTask<T | void, U>(taskT, f)
         };
         return taskT;
     };

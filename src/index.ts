@@ -3,19 +3,19 @@ import { Stream, StreamCombinator } from "./streams";
 
 const myAction = () => console.log("myAction was executed");
 
-const createHtmlElementTask = Task.event<HTMLElementEventMap, HTMLElement>(document.getElementById("test"), "click");
+const createHtmlElementTask = Task.event<HTMLElementEventMap, HTMLElement>("click", document.getElementById("test"));
 
-const timeout = Task.timeoutCreator(window);
+const Tevent = Task.event("beforeunload", window) 
 
 const onBeforeUnloadOrTimeout = (thresholdMs: number) => TaskCombinator.race(
-    timeout(thresholdMs),
-    Task.event(window, "beforeunload").map(() => {})
+    Task.timeout(thresholdMs),
+    Task.event("beforeunload", window)
 ).map(myAction);
 
-const eventStream = Stream.events(window, "click")
+const eventStream = Stream.events("click", window)
     .map<[number, number]>(e => [e.x, e.y]);
 
-const timeStream = Stream.interval(window)(1000)
+const timeStream = Stream.interval(1000)
     .map(((i=0) => () => i++)());
 
 const zipStream = StreamCombinator
