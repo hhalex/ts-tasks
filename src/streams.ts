@@ -5,7 +5,8 @@ export type RunningStream = {
 type PrimitiveStream<T> = {
     map:  <U>(f: ((t: T) => U)) => Stream<U>,
     filter:  (f: ((t: T) => boolean)) => Stream<T>,
-    take: (n: number) => Stream<T>
+    take: (n: number) => Stream<T>,
+    chunk: <N extends number>(n: N) => Stream<Tuple<N, T>>
 }
 
 type NudeStream<T> = {
@@ -49,11 +50,36 @@ const takeStream = <T>(nudeStreamT: NudeStream<T>, n: number): NudeStream<T> => 
     }
 });
 
+type Tuple<N extends number, T> = N extends 0
+    ? never
+    : N extends 1
+        ? [T]
+        : N extends 2
+            ? [T, T]
+            : N extends 3
+                ? [T, T, T]
+                : T[];
+
+const chunkStream = <T, N extends number>(nudeStreamT: NudeStream<T>, n: N): NudeStream<Tuple<N, T>> => ({
+    start: <V>(then: (v: Tuple<N, T>) => V = doNothing<T, V>()): RunningStream => {
+        const tuple: T[] = [];
+
+        const scheduledStream = nudeStreamT.start((v2: T) => {
+            tuple.push(v2);
+            if (tuple.length === n)
+                then(tuple.splice(0) as Tuple<N, T>);
+        });
+
+        return scheduledStream;
+    }
+});
+
 const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => ({
     ...nudeStream,
-    map: <V>(f: (t: T) => V) => createStream(mapStream<T, V>(nudeStream, f)),
-    filter: (f: (t: T) => boolean) => createStream(filterStream<T>(nudeStream, f)),
-    take: (n: number) => createStream(takeStream(nudeStream, n))
+    map: <V>(f: (t: T) => V) => createStream(mapStream(nudeStream, f)),
+    filter: (f: (t: T) => boolean) => createStream(filterStream(nudeStream, f)),
+    take: (n: number) => createStream(takeStream(nudeStream, n)),
+    chunk: <N extends number>(n: N) => createStream(chunkStream(nudeStream, n))
 });
 
 export module Stream {

@@ -21,6 +21,8 @@ const timeStream = Stream.interval(1000)
 
 const zipStream = StreamCombinator
     .zip(eventStream, timeStream)
-    .map(([[x, y], time]) => `Click event [${x}, ${y}] recorded at ${time} seconds`);
+    .map(([[x, y], time]) => `Click event [${x}, ${y}] recorded at ${time} seconds`)
+    .chunk(3)
+    .take(1);
 
 zipStream.start(console.log);
