@@ -99,21 +99,17 @@ export module StreamCombinator {
         const zipStream: NudeStream<[S1, S2]> = {
             start: <U>(then: ((v: [S1, S2]) => U) = doNothing<[S1, S2], U>()) => {
                 
-                const initialState: [undefined, false] = [undefined, false];
-                
-                let s1: [S1, true] | [undefined, false] = initialState;
-                let s2: [S2, true] | [undefined, false] = initialState;
+                const s1: S1[] = [];
+                const s2: S2[] = [];
                 
                 const emitZipEvent = () => {
-                    if (s1[1] && s2[1]) {
-                        then([s1[0], s2[0]]);
-                        s1 = initialState;
-                        s2 = initialState;
+                    if (s1.length > 0 && s2.length > 0) {
+                        then([s1.shift(), s2.shift()]);
                     }
                 };
 
-                const runningStream1 = stream1.start(eventS1 => { s1 = [eventS1, true]; emitZipEvent(); });
-                const runningStream2 = stream2.start(eventS2 => { s2 = [eventS2, true]; emitZipEvent(); });
+                const runningStream1 = stream1.start(eventS1 => { s1.push(eventS1); emitZipEvent(); });
+                const runningStream2 = stream2.start(eventS2 => { s2.push(eventS2); emitZipEvent(); });
 
                 return {
                     stop: () => {
