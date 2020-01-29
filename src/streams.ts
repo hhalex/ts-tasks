@@ -101,9 +101,9 @@ export module Stream {
     };
 
     export const events = <
-        EM extends {[key in keyof EM]: Event} = WindowEventMap, 
-        EL extends EventListenable<EM> = Window,
-        K extends keyof EM = keyof EM
+        K extends keyof EM,
+        EM extends {[key in keyof EM]: Event} = WindowEventMap,
+        EL extends EventListenable<EM> = Window
     >(eventName: K, el: EL): Stream<EM[K]> => {
         type StreamedEvent = EM[K];
         const streamT = {
