@@ -41,7 +41,7 @@ const flatMapTask = <T, U>(t: NudeTask<T>, f: ((t: T) => NudeTask<U>)): NudeTask
 const repeatTask = <T>(task: NudeTask<T>, n: number): NudeTask<T> => ({
     run: <U>(then: (t: T) => U = doNothing<T, U>()): ScheduledTask =>
         task.run((n === 1)
-            ? then
+            ? (_t: T) => task.run(then)
             : (_t: T) => { repeatTask(task, n - 1).run(then); })
 });
 
