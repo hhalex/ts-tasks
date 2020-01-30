@@ -12,37 +12,31 @@ type PrimitiveTask<T> = {
     repeat: (n: number) => Task<T>
 };
 
-export type Task<T> = PrimitiveTask<T> & NudeTask<T>; 
+export type Task<T> = PrimitiveTask<T> & NudeTask<T>;
 
 const doNothing = <_T, _U>() => () => {
     return undefined as unknown as _U;
 };
 
-const mapTask = <T, U>(t: Task<T>, f: ((t: T) => U)): Task<U> => {
-    const taskU = {
-        run: <V>(then: (v: U) => V = doNothing<U, V>()): ScheduledTask => t.run(v => then(f(v))),
-    };
+const mapTask = <T, U>(t: NudeTask<T>, f: ((t: T) => U)): NudeTask<U> => ({
+    run: <V>(then: (v: U) => V = doNothing<U, V>()): ScheduledTask =>
+        t.run(v => then(f(v)))
+});
 
-    return createTask(taskU);
-};
-
-const flatMapTask = <T, U>(t: Task<T>, f: ((t: T) => Task<U>)): Task<U> => {
-    const taskU = {
-        run: <V>(then: (v: U) => V = doNothing<U, V>()): ScheduledTask => {
-            let scheduledSnd: ScheduledTask;
-            const scheduledFst = t.run((v2: T) => {
-                scheduledSnd = f(v2).run(then);
-            });
-            return {
-                cancel: () => {
-                    const fstCancelRes = scheduledFst.cancel();
-                    return scheduledSnd ? fstCancelRes || scheduledSnd.cancel() : fstCancelRes;
-                }
-            };
-        }
-    };
-    return createTask(taskU);
-};
+const flatMapTask = <T, U>(t: NudeTask<T>, f: ((t: T) => NudeTask<U>)): NudeTask<U> => ({
+    run: <V>(then: (v: U) => V = doNothing<U, V>()): ScheduledTask => {
+        let scheduledSnd: ScheduledTask;
+        const scheduledFst = t.run((v2: T) => {
+            scheduledSnd = f(v2).run(then);
+        });
+        return {
+            cancel: () => {
+                const fstCancelRes = scheduledFst.cancel();
+                return scheduledSnd ? fstCancelRes || scheduledSnd.cancel() : fstCancelRes;
+            }
+        };
+    }
+});
 
 const repeatTask = <T>(task: NudeTask<T>, n: number): NudeTask<T> => ({
     run: <U>(then: (t: T) => U = doNothing<T, U>()): ScheduledTask =>
@@ -54,8 +48,8 @@ const repeatTask = <T>(task: NudeTask<T>, n: number): NudeTask<T> => ({
 const createTask = <T>(nudeTask: NudeTask<T>) => {
     const taskT: Task<T> = {
         ...nudeTask,
-        map: <V>(f: (v: T) => V) => mapTask<T, V>(taskT, f),
-        flatMap: <V>(f: (t: T) => Task<V>) => flatMapTask<T, V>(taskT, f),
+        map: <V>(f: (v: T) => V) => createTask(mapTask<T, V>(taskT, f)),
+        flatMap: <V>(f: (t: T) => Task<V>) => createTask(flatMapTask<T, V>(taskT, f)),
         repeat: (n: number) => createTask(repeatTask(taskT, n))
     }
     return taskT;
