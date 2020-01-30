@@ -9,6 +9,7 @@ type NudeTask<T> = {
 type PrimitiveTask<T> = {
     flatMap:  <U>(f: ((t: T) => Task<U>)) => Task<U>,
     map: <U>(f: (t: T) => U) => Task<U>,
+    repeat: (n: number) => Task<T>
 };
 
 export type Task<T> = PrimitiveTask<T> & NudeTask<T>; 
@@ -43,11 +44,19 @@ const flatMapTask = <T, U>(t: Task<T>, f: ((t: T) => Task<U>)): Task<U> => {
     return createTask(taskU);
 };
 
+const repeatTask = <T>(task: NudeTask<T>, n: number): NudeTask<T> => ({
+    run: <U>(then: (t: T) => U = doNothing<T, U>()): ScheduledTask =>
+        task.run((n === 1)
+            ? then
+            : (_t: T) => { repeatTask(task, n - 1).run(then); })
+});
+
 const createTask = <T>(nudeTask: NudeTask<T>) => {
     const taskT: Task<T> = {
         ...nudeTask,
         map: <V>(f: (v: T) => V) => mapTask<T, V>(taskT, f),
-        flatMap: <V>(f: (t: T) => Task<V>) => flatMapTask<T, V>(taskT, f)
+        flatMap: <V>(f: (t: T) => Task<V>) => flatMapTask<T, V>(taskT, f),
+        repeat: (n: number) => createTask(repeatTask(taskT, n))
     }
     return taskT;
 } 
@@ -90,11 +99,10 @@ export module Task {
     };
 
     export const event = <
+        K extends keyof EM,
         EM extends {[key in keyof EM]: Event} = WindowEventMap,
-        EL extends EventListenable<EM> = Window,
-        K extends keyof EM = keyof EM
+        EL extends EventListenable<EM> = Window
     >(eventName: K, el: EL): Task<EM[K]> => {
-            
         type TaskEvent = EM[K];
         const taskT = {
             run: <U>(then: ((v: TaskEvent) => U) = doNothing<TaskEvent, U>()) => {
@@ -113,10 +121,6 @@ export module Task {
     };
 }
 export module TaskCombinator {
-    export const repeat = <T>(task: Task<T>, n: number): Task<T> =>
-        n === 1
-            ? task
-            : task.flatMap(_ => repeat(task, n - 1)) as Task<T>;
 
     export const race = <T>(...tasks: Task<T | void>[]): Task<T | void> => {
         const taskT = {
