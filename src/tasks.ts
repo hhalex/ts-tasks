@@ -129,14 +129,16 @@ export module TaskCombinator {
         return createTask(taskT);
     };
 
-    export const all = <T>(...tasks: Task<T | void>[]): Task<T | void> => {
+    export const all = <T>(...tasks: Task<T>[]): Task<T[]> => {
         const taskT = {
-            run: <U>(then: ((v: T | void) => U) = doNothing<T, U>()) => {
+            run: <U>(then: ((v: T[]) => U) = doNothing<T, U>()) => {
                 let remainingTasks = tasks.length;
-                const scheduledTasks = tasks.map(t =>
+                const taskValues: T[] = [];
+                const scheduledTasks = tasks.map((t, i) =>
                     t.run(v => {
+                        taskValues[i] = v;
                         if (remainingTasks-- == 0) {
-                            then(v);
+                            then(taskValues);
                         }
                     })
                 );
