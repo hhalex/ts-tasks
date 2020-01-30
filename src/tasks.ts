@@ -147,7 +147,7 @@ export module TaskCombinator {
                 const scheduledTasks = tasks.map((t, i) =>
                     t.run(v => {
                         taskValues[i] = v;
-                        if (remainingTasks-- == 0) {
+                        if (--remainingTasks == 0) {
                             then(taskValues);
                         }
                     })
