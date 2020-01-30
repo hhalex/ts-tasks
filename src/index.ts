@@ -21,6 +21,8 @@ const timeStream = Stream.interval(1000)
     .map(((i=0) => () => i++)())
     .filter(n => n == 1);
 
+const test = TaskCombinator.all(recursiveTimeout8, recursiveTimeout8, recursiveTimeout8)
+
 const zipStream = StreamCombinator
     .zip(eventStream, timeStream)
     .map(([[x, y], time]) => `Click event [${x}, ${y}] recorded at ${time} seconds`)
