@@ -7,6 +7,7 @@ type PrimitiveStream<T> = {
     flatMap:  <U>(f: ((t: T) => NudeStream<U>)) => Stream<U>,
     filter:  (f: ((t: T) => boolean)) => Stream<T>,
     take: (n: number) => Stream<T>,
+    skip: (n: number) => Stream<T>,
     chunk: <N extends number>(n: N) => Stream<Tuple<N, T>>,
     zip: <U>(otherStream: NudeStream<U>) => Stream<[T, U]>,
 }
@@ -105,12 +106,26 @@ const zipStream = <S1, S2>(stream1: NudeStream<S1>, stream2: NudeStream<S2>) => 
     }
 });
 
+const skipStream = <T>(nudeStream: NudeStream<T>, n: number) => ({
+    start: <U>(then: ((v: T) => U) = doNothing<T, U>()) => {
+        
+        let remainingSkippableEvents = n;
+        
+        return nudeStream.start(event => { 
+            if (remainingSkippableEvents-- <= 0) {
+                then(event);
+            }
+         });
+    }
+});
+
 const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => ({
     ...nudeStream,
     map: <V>(f: (t: T) => V) => createStream(mapStream(nudeStream, f)),
     flatMap: <U>(f: (t: T) => NudeStream<U>) => createStream(flatMapStream(nudeStream, f)),
     filter: (f: (t: T) => boolean) => createStream(filterStream(nudeStream, f)),
     take: (n: number) => createStream(takeStream(nudeStream, n)),
+    skip: (n: number) => createStream(skipStream(nudeStream, n)),
     chunk: <N extends number>(n: N) => createStream(chunkStream(nudeStream, n)),
     zip: <N>(s: NudeStream<N>) => createStream(zipStream(nudeStream, s))
 });
