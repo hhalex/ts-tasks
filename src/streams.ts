@@ -8,6 +8,7 @@ type PrimitiveStream<T> = {
     filter:  (f: ((t: T) => boolean)) => Stream<T>,
     take: (n: number) => Stream<T>,
     skip: (n: number) => Stream<T>,
+    shift: (n: number) => Stream<T>,
     chunk: <N extends number>(n: N) => Stream<Tuple<N, T>>,
     zip: <U>(otherStream: NudeStream<U>) => Stream<[T, U]>,
 }
@@ -119,6 +120,20 @@ const skipStream = <T>(nudeStream: NudeStream<T>, n: number) => ({
     }
 });
 
+const shiftStream = <T>(nudeStream: NudeStream<T>, n: number) => ({
+    start: <U>(then: ((v: T) => U) = doNothing<T, U>()) => {
+        
+        const queue: T[] = [];
+        
+        return nudeStream.start(event => {
+            queue.push(event);
+            if (queue.length > n) {
+                then(queue.shift());
+            }
+         });
+    }
+});
+
 const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => ({
     ...nudeStream,
     map: <V>(f: (t: T) => V) => createStream(mapStream(nudeStream, f)),
@@ -126,6 +141,7 @@ const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => ({
     filter: (f: (t: T) => boolean) => createStream(filterStream(nudeStream, f)),
     take: (n: number) => createStream(takeStream(nudeStream, n)),
     skip: (n: number) => createStream(skipStream(nudeStream, n)),
+    shift: (n: number) => createStream(shiftStream(nudeStream, n)),
     chunk: <N extends number>(n: N) => createStream(chunkStream(nudeStream, n)),
     zip: <N>(s: NudeStream<N>) => createStream(zipStream(nudeStream, s))
 });
