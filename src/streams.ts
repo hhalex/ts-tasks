@@ -4,6 +4,7 @@ export type RunningStream = {
 
 type PrimitiveStream<T> = {
     map:  <U>(f: ((t: T) => U)) => Stream<U>,
+    flatMap:  <U>(f: ((t: T) => NudeStream<U>)) => Stream<U>,
     filter:  (f: ((t: T) => boolean)) => Stream<T>,
     take: (n: number) => Stream<T>,
     chunk: <N extends number>(n: N) => Stream<Tuple<N, T>>,
@@ -25,6 +26,11 @@ type Generator<T> = () => {val: T, next: Generator<T>};
 const mapStream = <T, U>(t: NudeStream<T>, f: ((t: T) => U)): NudeStream<U> => ({
     start: <V>(then: (v: U) => V = doNothing<U, V>()): RunningStream =>
         t.start((v2: T) => then(f(v2)))
+});
+
+const flatMapStream = <T, U>(t: NudeStream<T>, f: ((t: T) => NudeStream<U>)): NudeStream<U> => ({
+    start: <V>(then: (v: U) => V = doNothing<U, V>()): RunningStream =>
+        t.start((v2: T) => f(v2).start(then))
 });
 
 const filterStream = <T>(nudeStreamT: NudeStream<T>, f: ((t: T) => boolean)): NudeStream<T> => ({
@@ -102,6 +108,7 @@ const zipStream = <S1, S2>(stream1: NudeStream<S1>, stream2: NudeStream<S2>) => 
 const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => ({
     ...nudeStream,
     map: <V>(f: (t: T) => V) => createStream(mapStream(nudeStream, f)),
+    flatMap: <U>(f: (t: T) => NudeStream<U>) => createStream(flatMapStream(nudeStream, f)),
     filter: (f: (t: T) => boolean) => createStream(filterStream(nudeStream, f)),
     take: (n: number) => createStream(takeStream(nudeStream, n)),
     chunk: <N extends number>(n: N) => createStream(chunkStream(nudeStream, n)),
