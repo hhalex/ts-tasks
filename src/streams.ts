@@ -11,6 +11,7 @@ type PrimitiveStream<T> = {
     shift: (n: number) => Stream<T>,
     chunk: <N extends number>(n: N) => Stream<Tuple<N, T>>,
     zip: <U>(otherStream: NudeStream<U>) => Stream<[T, U]>,
+    merge: <U>(otherStream: NudeStream<U>) => Stream<T | U>,
 }
 
 type NudeStream<T> = {
@@ -134,6 +135,19 @@ const shiftStream = <T>(nudeStream: NudeStream<T>, n: number) => ({
     }
 });
 
+const mergeStream = <T, U>(nudeStream1: NudeStream<T>, nudeStream2: NudeStream<U>) => ({
+    start: <V>(then: ((v: T | U) => V) = doNothing<T, V>()) => {
+        const scheduledStream1 = nudeStream1.start(then);
+        const scheduledStream2 = nudeStream2.start(then);
+        return {
+            stop: () => {
+                scheduledStream1.stop();
+                scheduledStream2.stop();
+            }
+        }
+    }
+});
+
 const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => ({
     ...nudeStream,
     map: <V>(f: (t: T) => V) => createStream(mapStream(nudeStream, f)),
@@ -143,7 +157,8 @@ const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => ({
     skip: (n: number) => createStream(skipStream(nudeStream, n)),
     shift: (n: number) => createStream(shiftStream(nudeStream, n)),
     chunk: <N extends number>(n: N) => createStream(chunkStream(nudeStream, n)),
-    zip: <N>(s: NudeStream<N>) => createStream(zipStream(nudeStream, s))
+    zip: <N>(s: NudeStream<N>) => createStream(zipStream(nudeStream, s)),
+    merge: <V>(s: NudeStream<V>) => createStream(mergeStream(nudeStream, s))
 });
 
 export module Stream {
