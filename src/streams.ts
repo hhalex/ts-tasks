@@ -6,7 +6,8 @@ type PrimitiveStream<T> = {
     map:  <U>(f: ((t: T) => U)) => Stream<U>,
     filter:  (f: ((t: T) => boolean)) => Stream<T>,
     take: (n: number) => Stream<T>,
-    chunk: <N extends number>(n: N) => Stream<Tuple<N, T>>
+    chunk: <N extends number>(n: N) => Stream<Tuple<N, T>>,
+    zip: <U>(otherStream: NudeStream<U>) => Stream<[T, U]>,
 }
 
 type NudeStream<T> = {
@@ -74,12 +75,37 @@ const chunkStream = <T, N extends number>(nudeStreamT: NudeStream<T>, n: N): Nud
     }
 });
 
+const zipStream = <S1, S2>(stream1: NudeStream<S1>, stream2: NudeStream<S2>) => ({
+    start: <U>(then: ((v: [S1, S2]) => U) = doNothing<[S1, S2], U>()) => {
+        
+        const s1: S1[] = [];
+        const s2: S2[] = [];
+        
+        const emitZipEvent = () => {
+            if (s1.length > 0 && s2.length > 0) {
+                then([s1.shift(), s2.shift()]);
+            }
+        };
+
+        const runningStream1 = stream1.start(eventS1 => { s1.push(eventS1); emitZipEvent(); });
+        const runningStream2 = stream2.start(eventS2 => { s2.push(eventS2); emitZipEvent(); });
+
+        return {
+            stop: () => {
+                runningStream1.stop();
+                runningStream2.stop();
+            }
+        };
+    }
+});
+
 const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => ({
     ...nudeStream,
     map: <V>(f: (t: T) => V) => createStream(mapStream(nudeStream, f)),
     filter: (f: (t: T) => boolean) => createStream(filterStream(nudeStream, f)),
     take: (n: number) => createStream(takeStream(nudeStream, n)),
-    chunk: <N extends number>(n: N) => createStream(chunkStream(nudeStream, n))
+    chunk: <N extends number>(n: N) => createStream(chunkStream(nudeStream, n)),
+    zip: <N>(s: NudeStream<N>) => createStream(zipStream(nudeStream, s))
 });
 
 export module Stream {
@@ -119,32 +145,3 @@ export module Stream {
         return createStream(streamT);
     };
 };
-
-export module StreamCombinator {
-    export const zip = <S1, S2>(stream1: Stream<S1>, stream2: Stream<S2>) => {
-        const zipStream: NudeStream<[S1, S2]> = {
-            start: <U>(then: ((v: [S1, S2]) => U) = doNothing<[S1, S2], U>()) => {
-                
-                const s1: S1[] = [];
-                const s2: S2[] = [];
-                
-                const emitZipEvent = () => {
-                    if (s1.length > 0 && s2.length > 0) {
-                        then([s1.shift(), s2.shift()]);
-                    }
-                };
-
-                const runningStream1 = stream1.start(eventS1 => { s1.push(eventS1); emitZipEvent(); });
-                const runningStream2 = stream2.start(eventS2 => { s2.push(eventS2); emitZipEvent(); });
-
-                return {
-                    stop: () => {
-                        runningStream1.stop();
-                        runningStream2.stop();
-                    }
-                };
-            }
-        }
-        return createStream(zipStream);
-    }
-}

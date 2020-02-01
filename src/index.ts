@@ -23,8 +23,8 @@ const timeStream = Stream.interval(1000)
 
 const test = TaskCombinator.all(recursiveTimeout8, recursiveTimeout8, recursiveTimeout8)
 
-const zipStream = StreamCombinator
-    .zip(eventStream, timeStream)
+const zipStream = eventStream
+    .zip(timeStream)
     .map(([[x, y], time]) => `Click event [${x}, ${y}] recorded at ${time} seconds`)
     .chunk(3)
     .take(1);
