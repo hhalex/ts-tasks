@@ -6,4 +6,4 @@ This library aims at being totally modular, you could choose to only use the pri
 
 - functional
 - strongly typed
-- lightweight, primtives you don't use are tree shaked 
+- lightweight, primtives you don't use are tree shaked
