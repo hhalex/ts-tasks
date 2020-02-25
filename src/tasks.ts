@@ -87,6 +87,19 @@ export module Task {
         return createTask(taskT);
     };
 
+    export const raf = (w: Window = window): Task<void> => createTask({
+        run: <U>(then: ((t: void) => U) = doNothing<void, U>()) => {
+            let executed = false;
+            const rafId = w.requestAnimationFrame(() => { then(); executed = true; });
+            return {
+                cancel: () => {
+                    w.cancelAnimationFrame(rafId);
+                    return executed;
+                }
+            };
+        }
+    });
+
     type EventListenable<EventMap extends {[key in keyof EventMap]: Event}> = {
         addEventListener: <K extends keyof EventMap>(eventName: K, action: (e: EventMap[K]) => void) => void,
         removeEventListener: <K extends keyof EventMap>(eventName: K, action: (e: EventMap[K]) => void) => void,
