@@ -87,10 +87,10 @@ export module Task {
         return createTask(taskT);
     };
 
-    export const raf = (w: Window = window): Task<void> => createTask({
-        run: <U>(then: ((t: void) => U) = doNothing<void, U>()) => {
+    export const raf = (w: Window = window): Task<number> => createTask({
+        run: <U>(then: ((t: number) => U) = doNothing<number, U>()) => {
             let executed = false;
-            const rafId = w.requestAnimationFrame(() => { then(); executed = true; });
+            const rafId = w.requestAnimationFrame(t => { then(t); executed = true; });
             return {
                 cancel: () => {
                     w.cancelAnimationFrame(rafId);
