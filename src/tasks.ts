@@ -79,7 +79,7 @@ export module Task {
                 return {
                     cancel: () => {
                         w.clearTimeout(timeoutId);
-                        return executed;
+                        return !executed;
                     }
                 };
             }
@@ -94,7 +94,7 @@ export module Task {
             return {
                 cancel: () => {
                     w.cancelAnimationFrame(rafId);
-                    return executed;
+                    return !executed;
                 }
             };
         }
@@ -119,7 +119,7 @@ export module Task {
                 return {
                     cancel: () => {
                         el.removeEventListener(eventName, doit);
-                        return executed;
+                        return !executed;
                     }
                 };
             }
