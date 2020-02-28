@@ -114,7 +114,7 @@ export module Task {
         const taskT = {
             run: <U>(then: ((v: TaskEvent) => U) = doNothing<TaskEvent, U>()) => {
                 let executed = false;
-                const doit = (e: TaskEvent) => { then(e); executed = true; };
+                const doit = (e: TaskEvent) => { el.removeEventListener(eventName, doit); then(e); executed = true; };
                 el.addEventListener(eventName, doit);
                 return {
                     cancel: () => {
