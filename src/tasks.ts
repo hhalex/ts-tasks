@@ -128,8 +128,7 @@ export module TaskCombinator {
         & (<T1, T2, T3, T4>(t1: Task<T1>, t2: Task<T2>, t3: Task<T3>, t4: Task<T4>) => Task<[T1 | undefined, T2 | undefined, T3 | undefined, T4 | undefined]>)
         & (<T1, T2, T3, T4, T5>(t1: Task<T1>, t2: Task<T2>, t3: Task<T3>, t4: Task<T4>, t5: Task<T5>) => Task<[T1 | undefined, T2 | undefined, T3 | undefined, T4 | undefined, T5 | undefined]>);
 
-    export const race = (<T>(...tasks: Task<T>[]): Task<T[]> => {
-        const taskT = {
+    export const race = (<T>(...tasks: Task<T>[]): Task<T[]> => createTask({
             run: <U>(then: ((v: T[]) => U) = doNothing<T, U>()) => {
                 const tab = new Array(tasks.length);
                 const scheduledTasks = tasks.map((t, taskIndex) =>
@@ -144,9 +143,7 @@ export module TaskCombinator {
                     cancel: cancelAll
                 };
             }
-        };
-        return createTask(taskT);
-    }) as raceFunction;
+    })) as raceFunction;
 
     type allFunction = (<T1, T2>(t1: Task<T1>, t2: Task<T2>) => Task<[T1, T2]>)
         & (<T1, T2, T3>(t1: Task<T1>, t2: Task<T2>, t3: Task<T3>) => Task<[T1, T2, T3]>)
