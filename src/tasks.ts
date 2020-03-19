@@ -57,35 +57,29 @@ const createTask = <T>(nudeTask: NudeTask<T>) => {
 
 export module Task {
 
-    export const lambda = <T>(action: () => T): Task<T> => {
-        const taskT = {
-            run: <U>(then: ((v: T) => U) = doNothing<T, U>()) => {
-                then(action());
-                return {
-                    cancel: () => false
-                };
-            }
-        };
-        return createTask(taskT);
-    };
+    export const lambda = <T>(action: () => T): Task<T> => createTask({
+        run: <U>(then: ((v: T) => U) = doNothing<T, U>()) => {
+            then(action());
+            return {
+                cancel: () => false
+            };
+        }
+    });
 
     export const noop = lambda(doNothing<void, void>());
 
-    export const timeout = (thresholdMs: number, w: Window = window): Task<void> => {
-        const taskT = {
-            run: <U>(then: ((t: void) => U) = doNothing<void, U>()) => {
-                let executed = false;
-                const timeoutId = w.setTimeout(() => { then(); executed = true; }, thresholdMs);
-                return {
-                    cancel: () => {
-                        w.clearTimeout(timeoutId);
-                        return !executed;
-                    }
-                };
-            }
-        };
-        return createTask(taskT);
-    };
+    export const timeout = (thresholdMs: number, w: Window = window): Task<void> => createTask({
+        run: <U>(then: ((t: void) => U) = doNothing<void, U>()) => {
+            let executed = false;
+            const timeoutId = w.setTimeout(() => { then(); executed = true; }, thresholdMs);
+            return {
+                cancel: () => {
+                    w.clearTimeout(timeoutId);
+                    return !executed;
+                }
+            };
+        }
+    });
 
     export const raf = (w: Window = window): Task<number> => createTask({
         run: <U>(then: ((t: number) => U) = doNothing<number, U>()) => {
@@ -129,15 +123,22 @@ export module Task {
 }
 export module TaskCombinator {
 
-    type raceFunction = (<T1, T2>(t1: Task<T1>, t2: Task<T2>) => Task<T1 | T2>)
-        & (<T1, T2, T3>(t1: Task<T1>, t2: Task<T2>, t3: Task<T3>) => Task<T1 | T2 | T3>)
-        & (<T1, T2, T3, T4>(t1: Task<T1>, t2: Task<T2>, t3: Task<T3>, t4: Task<T4>) => Task<T1 | T2 | T3 | T4>)
-        & (<T1, T2, T3, T4, T5>(t1: Task<T1>, t2: Task<T2>, t3: Task<T3>, t4: Task<T4>, t5: Task<T5>) => Task<T1 | T2 | T3 | T4 | T5>);
+    type raceFunction = (<T1, T2>(t1: Task<T1>, t2: Task<T2>) => Task<[T1 | undefined, T2 | undefined]>)
+        & (<T1, T2, T3>(t1: Task<T1>, t2: Task<T2>, t3: Task<T3>) => Task<[T1 | undefined, T2 | undefined, T3 | undefined]>)
+        & (<T1, T2, T3, T4>(t1: Task<T1>, t2: Task<T2>, t3: Task<T3>, t4: Task<T4>) => Task<[T1 | undefined, T2 | undefined, T3 | undefined, T4 | undefined]>)
+        & (<T1, T2, T3, T4, T5>(t1: Task<T1>, t2: Task<T2>, t3: Task<T3>, t4: Task<T4>, t5: Task<T5>) => Task<[T1 | undefined, T2 | undefined, T3 | undefined, T4 | undefined, T5 | undefined]>);
 
-    export const race = (<T>(...tasks: Task<T | void>[]): Task<T | void> => {
+    export const race = (<T>(...tasks: Task<T>[]): Task<T[]> => {
         const taskT = {
-            run: <U>(then: ((v: T | void) => U) = doNothing<T, U>()) => {
-                const scheduledTasks = tasks.map(t => t.run(v => { const res = then(v); cancelAll(); return res; }));
+            run: <U>(then: ((v: T[]) => U) = doNothing<T, U>()) => {
+                const tab = new Array(tasks.length);
+                const scheduledTasks = tasks.map((t, taskIndex) =>
+                    t.run(v => {
+                        tab[taskIndex] = v;
+                        cancelAll();
+                        return then(tab);
+                    })
+                );
                 const cancelAll = () => scheduledTasks.map(t => t.cancel()).reduce((acc, current) => acc || current, false);
                 return {
                     cancel: cancelAll
@@ -152,24 +153,24 @@ export module TaskCombinator {
         & (<T1, T2, T3, T4>(t1: Task<T1>, t2: Task<T2>, t3: Task<T3>, t4: Task<T4>) => Task<[T1, T2, T3, T4]>)
         & (<T1, T2, T3, T4, T5>(t1: Task<T1>, t2: Task<T2>, t3: Task<T3>, t4: Task<T4>, t5: Task<T5>) => Task<[T1, T2, T3, T4, T5]>);
 
-    export const all = (<T>(...tasks: Task<T>[]): Task<T[]> => {
-        const taskT = {
-            run: <U>(then: ((v: T[]) => U) = doNothing<T, U>()) => {
-                let remainingTasks = tasks.length;
-                const taskValues: T[] = [];
-                const scheduledTasks = tasks.map((t, i) =>
-                    t.run(v => {
-                        taskValues[i] = v;
-                        if (--remainingTasks == 0) {
-                            then(taskValues);
-                        }
-                    })
-                );
-                return {
-                    cancel: () => scheduledTasks.map(t => t.cancel()).reduce((acc, current) => acc || current, false)
-                };
-            }
-        };
-        return createTask(taskT);
-    }) as allFunction;
+    export const all = (<T>(...tasks: Task<T>[]): Task<T[]> => createTask({
+        run: <U>(then: ((v: T[]) => U) = doNothing<T, U>()) => {
+            let remainingTasks = tasks.length;
+            const taskValues: T[] = [];
+            const scheduledTasks = tasks.map((t, i) =>
+                t.run(v => {
+                    taskValues[i] = v;
+                    if (--remainingTasks == 0) {
+                        then(taskValues);
+                    }
+                })
+            );
+            return {
+                cancel: () => 
+                    scheduledTasks
+                        .map(t => t.cancel())
+                        .reduce((acc, current) => acc || current, false)
+            };
+        }
+    })) as allFunction;
 }
