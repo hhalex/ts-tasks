@@ -11,6 +11,7 @@ type PrimitivePushStream<T> = {
     chunk: <N extends number>(n: N) => PushStream<Tuple<N, T>>,
     zip: <U>(otherStream: NudePushStream<U>) => PushStream<[T, U]>,
     merge: <U>(otherStream: NudePushStream<U>) => PushStream<[T | undefined, U | undefined]>,
+    scan: <A>(scanner: (event: T, aac: A) => A, initialAccValue: A) => PushStream<A>
 }
 
 type NudePushStream<T> = {
@@ -133,6 +134,16 @@ const mergeStream = <T, U>(nudeStream1: NudePushStream<T>, nudeStream2: NudePush
     }
 });
 
+const scanStream = <T, A>(nudeStream: NudePushStream<T>, scanner: (event: T, aac: A) => A, initialAccValue: A): NudePushStream<A> => ({
+    start: <V>(then: ((v: A) => V) = doNothing<A, V>()) => {
+        let previousAccValue = initialAccValue;
+        return nudeStream.start(t => {
+            then(previousAccValue);
+            previousAccValue = scanner(t, previousAccValue);
+        });
+    }
+});
+
 const createStream = <T>(nudeStream: NudePushStream<T>): PushStream<T> => ({
     ...nudeStream,
     map: <V>(f: (t: T) => V) => createStream(mapStream(nudeStream, f)),
@@ -142,7 +153,8 @@ const createStream = <T>(nudeStream: NudePushStream<T>): PushStream<T> => ({
     drop: (n: number) => createStream(dropStream(nudeStream, n)),
     chunk: <N extends number>(n: N) => createStream(chunkStream(nudeStream, n)),
     zip: <N>(s: NudePushStream<N>) => createStream(zipStream(nudeStream, s)),
-    merge: <V>(s: NudePushStream<V>) => createStream(mergeStream(nudeStream, s))
+    merge: <V>(s: NudePushStream<V>) => createStream(mergeStream(nudeStream, s)),
+    scan: <A>(scanner: (event: T, aac: A) => A, initval: A) => createStream(scanStream(nudeStream, scanner, initval))
 });
 
 export module PushStream {

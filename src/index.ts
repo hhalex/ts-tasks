@@ -37,3 +37,7 @@ const test2 = PushStream.events("click", window)
     .filter(e => e.x === 0 && e.y === 0)
     .chunk(2)
     .map(([e1, e2]) => e1.x + e2.x)
+
+const timedClickStream = PushStream.events("click", window)
+    .merge(PushStream.interval(1000).map(() => performance.now()))
+    .scan<[MouseEvent, number]>(([e, t], acc) => t > 0 ? [acc[0], t] : [e, acc[1]], [undefined, 0])
