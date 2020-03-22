@@ -8,7 +8,6 @@ type PrimitivePushStream<T> = {
     filter:  (f: ((t: T) => boolean)) => PushStream<T>,
     take: (n: number) => PushStream<T>,
     drop: (n: number) => PushStream<T>,
-    shift: (n: number) => PushStream<T>,
     chunk: <N extends number>(n: N) => PushStream<Tuple<N, T>>,
     zip: <U>(otherStream: NudePushStream<U>) => PushStream<[T, U]>,
     merge: <U>(otherStream: NudePushStream<U>) => PushStream<[T | undefined, U | undefined]>,
@@ -121,20 +120,6 @@ const dropStream = <T>(nudeStream: NudePushStream<T>, n: number) => ({
     }
 });
 
-const shiftStream = <T>(nudeStream: NudePushStream<T>, n: number) => ({
-    start: <U>(then: ((v: T) => U) = doNothing<T, U>()) => {
-        
-        const queue: T[] = [];
-        
-        return nudeStream.start(event => {
-            queue.push(event);
-            if (queue.length > n) {
-                then(queue.shift());
-            }
-         });
-    }
-});
-
 const mergeStream = <T, U>(nudeStream1: NudePushStream<T>, nudeStream2: NudePushStream<U>) => ({
     start: <V>(then: ((v: [T | undefined, U | undefined]) => V) = doNothing<T, V>()) => {
         const scheduledStream1 = nudeStream1.start(t => then([t, undefined]));
@@ -155,7 +140,6 @@ const createStream = <T>(nudeStream: NudePushStream<T>): PushStream<T> => ({
     filter: (f: (t: T) => boolean) => createStream(filterStream(nudeStream, f)),
     take: (n: number) => createStream(takeStream(nudeStream, n)),
     drop: (n: number) => createStream(dropStream(nudeStream, n)),
-    shift: (n: number) => createStream(shiftStream(nudeStream, n)),
     chunk: <N extends number>(n: N) => createStream(chunkStream(nudeStream, n)),
     zip: <N>(s: NudePushStream<N>) => createStream(zipStream(nudeStream, s)),
     merge: <V>(s: NudePushStream<V>) => createStream(mergeStream(nudeStream, s))
