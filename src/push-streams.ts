@@ -7,7 +7,7 @@ type PrimitivePushStream<T> = {
     flatMap:  <U>(f: ((t: T) => NudePushStream<U>)) => PushStream<U>,
     filter:  (f: ((t: T) => boolean)) => PushStream<T>,
     take: (n: number) => PushStream<T>,
-    skip: (n: number) => PushStream<T>,
+    drop: (n: number) => PushStream<T>,
     shift: (n: number) => PushStream<T>,
     chunk: <N extends number>(n: N) => PushStream<Tuple<N, T>>,
     zip: <U>(otherStream: NudePushStream<U>) => PushStream<[T, U]>,
@@ -108,13 +108,13 @@ const zipStream = <S1, S2>(stream1: NudePushStream<S1>, stream2: NudePushStream<
     }
 });
 
-const skipStream = <T>(nudeStream: NudePushStream<T>, n: number) => ({
+const dropStream = <T>(nudeStream: NudePushStream<T>, n: number) => ({
     start: <U>(then: ((v: T) => U) = doNothing<T, U>()) => {
         
-        let remainingSkippableEvents = n;
+        let remainingDroppableEvents = n;
         
         return nudeStream.start(event => { 
-            if (remainingSkippableEvents-- <= 0) {
+            if (remainingDroppableEvents-- <= 0) {
                 then(event);
             }
          });
@@ -154,7 +154,7 @@ const createStream = <T>(nudeStream: NudePushStream<T>): PushStream<T> => ({
     flatMap: <U>(f: (t: T) => NudePushStream<U>) => createStream(flatMapStream(nudeStream, f)),
     filter: (f: (t: T) => boolean) => createStream(filterStream(nudeStream, f)),
     take: (n: number) => createStream(takeStream(nudeStream, n)),
-    skip: (n: number) => createStream(skipStream(nudeStream, n)),
+    drop: (n: number) => createStream(dropStream(nudeStream, n)),
     shift: (n: number) => createStream(shiftStream(nudeStream, n)),
     chunk: <N extends number>(n: N) => createStream(chunkStream(nudeStream, n)),
     zip: <N>(s: NudePushStream<N>) => createStream(zipStream(nudeStream, s)),
