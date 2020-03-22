@@ -11,7 +11,7 @@ type PrimitivePushStream<T> = {
     shift: (n: number) => PushStream<T>,
     chunk: <N extends number>(n: N) => PushStream<Tuple<N, T>>,
     zip: <U>(otherStream: NudePushStream<U>) => PushStream<[T, U]>,
-    merge: <U>(otherStream: NudePushStream<U>) => PushStream<T | U>,
+    merge: <U>(otherStream: NudePushStream<U>) => PushStream<[T | undefined, U | undefined]>,
 }
 
 type NudePushStream<T> = {
@@ -136,9 +136,9 @@ const shiftStream = <T>(nudeStream: NudePushStream<T>, n: number) => ({
 });
 
 const mergeStream = <T, U>(nudeStream1: NudePushStream<T>, nudeStream2: NudePushStream<U>) => ({
-    start: <V>(then: ((v: T | U) => V) = doNothing<T, V>()) => {
-        const scheduledStream1 = nudeStream1.start(then);
-        const scheduledStream2 = nudeStream2.start(then);
+    start: <V>(then: ((v: [T | undefined, U | undefined]) => V) = doNothing<T, V>()) => {
+        const scheduledStream1 = nudeStream1.start(t => then([t, undefined]));
+        const scheduledStream2 = nudeStream2.start(u => then([undefined, u]));
         return {
             stop: () => {
                 scheduledStream1.stop();
