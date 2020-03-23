@@ -13,7 +13,12 @@
     "url": "git+https://github.com/hhalex/ts-tasks.git"
   },
   "author": "Alexandre Careil <alex.careil.fr@gmail.com>",
-  "keywords": ["functional", "task", "stream", "typescript"],
+  "keywords": [
+    "functional",
+    "task",
+    "stream",
+    "typescript"
+  ],
   "license": "ISC",
   "devDependencies": {
     "rollup": "2.1.0",
