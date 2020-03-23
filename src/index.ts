@@ -1,5 +1,5 @@
 import { TaskCombinator, Task } from "./tasks";
-import { PushStream } from "./push-streams";
+import { Stream } from "./streams";
 
 const myAction = () => console.log("myAction was executed");
 
@@ -14,10 +14,10 @@ const onBeforeUnloadOrTimeout = (thresholdMs: number) => TaskCombinator.race(
 
 const recursiveTimeout8 = Task.timeout(1000).repeat(8);
 
-const eventStream = PushStream.events("click", window)
+const eventStream = Stream.events("click", window)
     .map<[number, number]>(e => [e.x, e.y]);
 
-const timeStream = PushStream.interval(1000)
+const timeStream = Stream.interval(1000)
     .map(((i=0) => () => i++)())
     .filter(n => n == 1);
 
@@ -32,12 +32,12 @@ const zipStream = eventStream
 zipStream.start(console.log);
 
 
-const test2 = PushStream.events("click", window)
+const test2 = Stream.events("click", window)
     .map(e => ({time: e.timeStamp, x: e.x, y: e.y}))
     .filter(e => e.x === 0 && e.y === 0)
     .chunk(2)
     .map(([e1, e2]) => e1.x + e2.x)
 
-const timedClickStream = PushStream.events("click", window)
-    .merge(PushStream.interval(1000).map(() => performance.now()))
+const timedClickStream = Stream.events("click", window)
+    .merge(Stream.interval(1000).map(() => performance.now()))
     .scan<[MouseEvent, number]>(([e, t], acc) => t > 0 ? [acc[0], t] : [e, acc[1]], [undefined, 0])
