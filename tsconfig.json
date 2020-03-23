@@ -1,8 +1,8 @@
 {
     "compilerOptions": {
         "declaration": true,
-        "declarationDir": "dist/",
-        "outDir": "dist/",
+        "declarationDir": "lib/",
+        "outDir": "lib/",
         "module": "es6",
         "noImplicitAny": true,
         "removeComments": true,

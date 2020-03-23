@@ -2,7 +2,7 @@ export type ScheduledTask = {
     cancel: () => boolean
 };
 
-type NudeTask<T> = {
+export type NudeTask<T> = {
     run: <U>(then: (v: T) => U) => ScheduledTask
 };
 
