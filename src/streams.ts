@@ -138,8 +138,8 @@ const scanStream = <T, A>(nudeStream: NudeStream<T>, scanner: (event: T, aac: A)
     start: <V>(then: ((v: A) => V) = doNothing<A, V>()) => {
         let previousAccValue = initialAccValue;
         return nudeStream.start(t => {
-            then(previousAccValue);
             previousAccValue = scanner(t, previousAccValue);
+            then(previousAccValue);
         });
     }
 });
