@@ -133,8 +133,8 @@ export module TaskCombinator {
                 const tab = new Array(tasks.length);
                 const scheduledTasks = tasks.map((t, taskIndex) =>
                     t.run(v => {
-                        tab[taskIndex] = v;
                         cancelAll();
+                        tab[taskIndex] = v;
                         return then(tab);
                     })
                 );
