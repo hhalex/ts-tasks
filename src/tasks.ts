@@ -57,6 +57,8 @@ const createTask = <T>(nudeTask: NudeTask<T>) => {
 
 export module Task {
 
+    export const create = createTask;
+
     export const lambda = <T>(action: () => T): Task<T> => createTask({
         run: <U>(then: ((v: T) => U) = doNothing<T, U>()) => {
             then(action());
