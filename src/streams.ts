@@ -158,6 +158,8 @@ const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => ({
 });
 
 export module Stream {
+    export const create = createStream;
+
     export const interval = (timeIntervalMs: number, w: Window = window): Stream<void> => {
         const streamT = {
             start: <V>(then: (v: void) => V = doNothing<void, V>()): RunningStream => {
