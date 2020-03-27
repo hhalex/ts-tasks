@@ -96,21 +96,23 @@ export module Task {
         }
     });
 
-    type EventListenable<EventMap extends {[key in keyof EventMap]: Event}> = {
-        addEventListener: <K extends keyof EventMap>(eventName: K, action: (e: EventMap[K]) => void) => void,
-        removeEventListener: <K extends keyof EventMap>(eventName: K, action: (e: EventMap[K]) => void) => void,
-    };
+    type createEventFunction<EM, EL> = (<K extends keyof EM>(eventName: K, el: EL) => Task<EM[K]>)
 
-    export const event = <
-        K extends keyof EM,
-        EM extends {[key in keyof EM]: Event} = WindowEventMap,
-        EL extends EventListenable<EM> = Window
-    >(eventName: K, el: EL): Task<EM[K]> => {
-        type TaskEvent = EM[K];
-        const taskT = {
-            run: <U>(then: ((v: TaskEvent) => U) = doNothing<TaskEvent, U>()) => {
+    type eventFunction = (<K extends keyof WindowEventMap>(eventName: K, w?: Window) => Task<WindowEventMap[K]>)
+        & createEventFunction<SVGElementEventMap, SVGElement>
+        & createEventFunction<HTMLBodyElementEventMap, HTMLBodyElement>
+        & createEventFunction<DocumentEventMap, HTMLDocument>
+        & createEventFunction<HTMLElementEventMap, HTMLElement>
+
+    export const event = (<K extends keyof WindowEventMap>(eventName: K, el: Window = window): Task<WindowEventMap[K]> => 
+        createTask({
+            run: <U>(then: ((v: WindowEventMap[K]) => U) = doNothing<WindowEventMap[K], U>()) => {
                 let executed = false;
-                const doit = (e: TaskEvent) => { el.removeEventListener(eventName, doit); then(e); executed = true; };
+                const doit = (e: WindowEventMap[K]) => {
+                    el.removeEventListener(eventName, doit);
+                    then(e);
+                    executed = true;
+                };
                 el.addEventListener(eventName, doit);
                 return {
                     cancel: () => {
@@ -119,9 +121,7 @@ export module Task {
                     }
                 };
             }
-        };
-        return createTask(taskT);
-    };
+        })) as eventFunction;
 }
 export module TaskCombinator {
 
