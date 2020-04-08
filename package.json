@@ -1,6 +1,6 @@
 {
   "name": "pledge-ts",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Primitives to schedule tasks and combine them in typescript",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
