@@ -1,2 +1,2 @@
 export { Stream } from "./streams";
-export {Task, TaskCombinator} from "./tasks";
+export { Task } from "./tasks";
