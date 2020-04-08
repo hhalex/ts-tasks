@@ -122,8 +122,6 @@ export module Task {
                 };
             }
         })) as eventFunction;
-}
-export module TaskCombinator {
 
     type raceFunction = (<T1, T2>(t1: Task<T1>, t2: Task<T2>) => Task<[T1 | undefined, T2 | undefined]>)
         & (<T1, T2, T3>(t1: Task<T1>, t2: Task<T2>, t3: Task<T3>) => Task<[T1 | undefined, T2 | undefined, T3 | undefined]>)
