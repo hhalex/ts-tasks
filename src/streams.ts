@@ -14,7 +14,7 @@ type PrimitiveStream<T> = {
     scan: <A>(scanner: (event: T, aac: A) => A, initialAccValue: A) => Stream<A>
 }
 
-type NudeStream<T> = {
+export type NudeStream<T> = {
     start: <U>(then: (v: T) => U) => RunningStream
 };
 
