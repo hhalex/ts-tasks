@@ -1,3 +1,5 @@
+import { Pipe } from "./pipe";
+
 export type RunningStream = {
     stop: () => void
 };
@@ -11,7 +13,8 @@ type PrimitiveStream<T> = {
     chunk: <N extends number>(n: N) => Stream<Tuple<N, T>>,
     zip: <U>(otherStream: NudeStream<U>) => Stream<[T, U]>,
     merge: <U>(otherStream: NudeStream<U>) => Stream<[T | undefined, U | undefined]>,
-    scan: <A>(scanner: (event: T, aac: A) => A, initialAccValue: A) => Stream<A>
+    scan: <A>(scanner: (event: T, aac: A) => A, initialAccValue: A) => Stream<A>,
+    through: <T, A>(stream: Stream<T>, pipe: Pipe<T, A>) => Stream<A>
 }
 
 export type NudeStream<T> = {
@@ -144,6 +147,8 @@ const scanStream = <T, A>(nudeStream: NudeStream<T>, scanner: (event: T, aac: A)
     }
 });
 
+const throughStream = <T, A>(nudeStream: Stream<T>, pipe: Pipe<T, A>): Stream<A> => pipe(nudeStream);
+
 const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => ({
     ...nudeStream,
     map: <V>(f: (t: T) => V) => createStream(mapStream(nudeStream, f)),
@@ -154,7 +159,8 @@ const createStream = <T>(nudeStream: NudeStream<T>): Stream<T> => ({
     chunk: <N extends number>(n: N) => createStream(chunkStream(nudeStream, n)),
     zip: <N>(s: NudeStream<N>) => createStream(zipStream(nudeStream, s)),
     merge: <V>(s: NudeStream<V>) => createStream(mergeStream(nudeStream, s)),
-    scan: <A>(scanner: (event: T, aac: A) => A, initval: A) => createStream(scanStream(nudeStream, scanner, initval))
+    scan: <A>(scanner: (event: T, aac: A) => A, initval: A) => createStream(scanStream(nudeStream, scanner, initval)),
+    through: <T, A>(stream: Stream<T>, pipe: Pipe<T, A>) => pipe(stream)
 });
 
 export module Stream {
